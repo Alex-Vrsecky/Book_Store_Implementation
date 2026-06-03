@@ -2,14 +2,15 @@
 import sqlite3
 import os
 
+# ============= RUN TO INITIALIZE A LOCAL DATABASE ================
+
 DB_NAME = "TFB.db"
 
-# 1. The Structured Spoof Mock Entries
 fake_data = {
     "users": [
-        #password1
+        # the admin password is password1
         ("admin", "0e0214527b0703f0c522400032a0e55f001bb6aceedcae5974730ae65aab84844f8b668c95e65c215d8f8b3225baffe40398d401d499aca2e9f1a8de5b85a7de", "Administrator"),
-        #password2
+        # the john99 user password is password2
         ("john99", "18a6bb4b62f15bcaa70245d5c0809a8bceb83aa8501edb78072667bc8d70fd0ce5ad06ccbe0fdc5cc1845fa4392dc0a5f51410959704c9a316c1f6c0c5ba4337", "Customer")
     ],
     "books": [

@@ -10,18 +10,9 @@ class LoginController:
     def __init__(self, database, key):
         self.db = database
         self.shared_key = key
-        
-        
-    def hash_new_password(self, pwd):
-        salt = os.urandom(32)
-        hash = hashlib.pbkdf2_hmac(
-            "sha256",
-            pwd.encode("utf-8"),
-            salt,
-            150000
-        )
-        return salt.hex() + hash.hex()
     
+    # uses the salt from the db to recalculate the hash from the user's input and 
+    # compare to the one in the db
     def check_password(self, plaintext, o_cipher):
         o_salt = bytes.fromhex(o_cipher[:64])
         o_hash = bytes.fromhex(o_cipher[64:])
@@ -33,7 +24,7 @@ class LoginController:
         )
         return secrets.compare_digest(n_hash, o_hash)
        
-
+    # creates a token if user's password was correct, otherwise returns None
     def validate_credentials(self, username, password):
         if not username or not password:
             return None
@@ -41,7 +32,6 @@ class LoginController:
         user_record = self.db.get_user(username)
         if user_record:
             if self.check_password(password, user_record["hash"]):
-                
                 token_data = {
                     "username": user_record["username"],
                     "role": user_record["role"],
@@ -57,12 +47,26 @@ class LoginController:
                 }
         return None
     
+    # called by other pages for LoginController to deconstruct the token
+    # the username and role are returned for callers if it's still valid
     def verify_session_token(self, token):
         try:
             payload = jwt.decode(token, self.shared_key, algorithms=["HS256"])
             return payload
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return None
+        
+    # this method is for a signup feature we probably won't implement  
+    # you can also use this function independantly to create hashes from passwords
+    # def hash_new_password(self, pwd):
+    #     salt = os.urandom(32)
+    #     hash = hashlib.pbkdf2_hmac(
+    #         "sha256",
+    #         pwd.encode("utf-8"),
+    #         salt,
+    #         150000
+    #     )
+    #     return salt.hex() + hash.hex()
         
 
 # CATALOGUE CONTROLLER
@@ -71,10 +75,11 @@ class CatalogueController:
         self.db = database
         self.shared_key = key
 
+    # gets books from db
     def get_all_books(self):
        return self.db.get_all_books()
        
-    # CUSTOMER INTERACTION BOUNDARIES
+    # base catalogue ui book population based on filters
     def browse_and_filter(self, search_query=None, author_filter=None):
         all_books = self.get_all_books() # Interaction with Database boundary
         
@@ -91,14 +96,16 @@ class CatalogueController:
         return {"success": True, "data": filtered_catalogue}
 
     # # STAFF CATALOGUE MANAGEMENT BOUNDARIES - NOT FINISHED!!
+    # The /catalogue page behaves differently when an admin session token visits
+    # allows catalogue editing
     # def add_new_book(self, token, isbn, title, author, price, initial_stock):
 
-    #     # Check if admin
+    #     # check if admin
     #     auth = self._verify_role_permission(token, "Administrator")
     #     if not auth["valid"]:
     #         return {"success": False, "error": auth["error"]}
 
-    #     # 2. Input Validation handling
+    #     # input Validation handling
     #     if not isbn or len(isbn.replace("-", "")) != 13:
     #         return {"success": False, "error": "Invalid Input: ISBN must be a valid 13-digit sequence."}
     #     if not title or not author:
@@ -111,28 +118,21 @@ class CatalogueController:
     #     except ValueError:
     #         return {"success": False, "error": "Invalid Input: Price and Stock metrics must be non-negative numeric values."}
 
-    #     # 3. Check for structural uniqueness collisions
+    #     # check for book duplicates
     #     existing_book = self.db.get_book_by_isbn(isbn)
     #     if existing_book:
     #         return {"success": False, "error": f"Collision Error: A record for ISBN {isbn} already exists."}
 
-    #     # 4. Commit changes via Database boundary
+    #     # commit changes via database object
     #     self.db.insert_book(isbn, title, author, price_val, stock_val)
     #     return {"success": True, "message": f"Successfully registered '{title}' to the active catalogue."}
 
 
-    # # STAFF STOCK UPDATE 
+    # # MANUAL STAFF STOCK UPDATE 
     # def update_inventory_stock(self, token, isbn, new_stock_count):
-    #     """
-    #     Collaborators: Book, StockRecord
-    #     Validates the targeted ISBN and adjusts numerical stock levels directly.
-    #     """
-      
     #     auth = self._verify_role_permission(token, "Administrator")
     #     if not auth["valid"]:
-    #         return {"success": False, "error": auth["error"]}
-
-      
+    #         return {"success": False, "error": auth["error"]}      
     #     try:
     #         stock_val = int(new_stock_count)
     #         if stock_val < 0:

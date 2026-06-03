@@ -1,5 +1,6 @@
 from flask import render_template_string
-
+# This is purely dynamically generated HTML that acts as a frame for the website
+#  Elements that are always on screen (ie. navbar) are rendered here
 class AppFrame:
     @staticmethod
     def render(content_html, user=None):

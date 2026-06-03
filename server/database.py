@@ -5,14 +5,13 @@ import os
 class Database:
     def __init__(self, db_name="TFB.db"):
         self.db_name = db_name
-        # if not os.path.exists(self.db_name):
-        #     print(f"Warning: '{self.db_name}' not found. Run 'python seed_db.py'")
 
     def _get_connection(self):
         conn = sqlite3.connect(self.db_name)
         conn.row_factory = sqlite3.Row
         return conn
 
+    # fetch a user from db
     def get_user(self, username):
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -24,6 +23,7 @@ class Database:
             return {"username": user_row["username"], "hash": user_row["hash"], "role": user_row["role"]}
         return None
 
+    # get a complete list of books
     def get_all_books(self):
         conn = self._get_connection()
         cursor = conn.cursor()
