@@ -10,6 +10,10 @@ class AppFrame:
         else:
             nav_button = '<a href="/login">Login</a>'
 
+        nav_links = '<a href="/catalogue">Catalogue</a>' 
+        if user and user.__class__.__name__ == "CustomerAccount": # only show cart link to logged in customers
+            nav_links += ' <a href="/cart" style="margin-left: 12px;">Cart</a>'
+
         # The global "Outer Frame"
         return render_template_string('''
             <!DOCTYPE html>
@@ -27,7 +31,7 @@ class AppFrame:
                 <nav>
                     <strong>TFB</strong>
                     <div>
-                        <a href="/catalogue">Catalogue</a>
+                        {{ nav_links|safe }}
                         {{ nav_button|safe }}
                     </div>
                 </nav>
@@ -36,4 +40,4 @@ class AppFrame:
                 </div>
             </body>
             </html>
-        ''', nav_button=nav_button, content_html=content_html)
+        ''', nav_button=nav_button, content_html=content_html, nav_links=nav_links)

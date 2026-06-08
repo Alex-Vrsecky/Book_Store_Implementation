@@ -4,3 +4,4 @@
 from .database import Database
 from .models import LoginController
 from .models import CatalogueController
+from .models import OrderController

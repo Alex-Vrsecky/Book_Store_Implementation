@@ -5,6 +5,7 @@ import hashlib
 import secrets
 import jwt 
 import datetime
+import random 
 
 class LoginController:
     def __init__(self, database, key):
@@ -78,6 +79,12 @@ class CatalogueController:
     # gets books from db
     def get_all_books(self):
        return self.db.get_all_books()
+    
+    # gets books by ISBN from db
+    def get_book_by_isbn(self, isbn):
+        if not isbn:
+            return None
+        return self.db.get_book_by_isbn(isbn)
        
     # base catalogue ui book population based on filters
     def browse_and_filter(self, search_query=None, author_filter=None):
@@ -94,68 +101,213 @@ class CatalogueController:
             filtered_catalogue.append(book)
             
         return {"success": True, "data": filtered_catalogue}
+    
+    # Checkes if token is assigned to Administrator (staff)
+    def verification_of_admin(self, token, required_role):
+        try: 
+            payload = jwt.decode(token, self.shared_key, algorithms=["HS256"])
+            if payload.get("role") == required_role:
+                return {"valid": True, "username": payload.get("username")}
+            return {"valid": False, "error": "Permission Denied: Limited Access."}
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return {"valid": False, "error": "Authentication Error: Invalid or Expired Session Token."}
+    
+    # Publishes an existing inventory item to the catalogue for customers view
+    def add_new_book(self, token, isbn, title, initial_stock):
+        # check if admin
+        auth = self.verification_of_admin(token, "Administrator") # Checks accessibility
+        if not auth["valid"]:
+            return {"success": False, "error": auth["error"]}
 
-    # # STAFF CATALOGUE MANAGEMENT BOUNDARIES - NOT FINISHED!!
-    # The /catalogue page behaves differently when an admin session token visits
-    # allows catalogue editing
-    # def add_new_book(self, token, isbn, title, author, price, initial_stock):
+        if self.db.get_book_by_isbn(isbn): # Ensure it is not already published
+            return {"success": False, "error": "Book is already in catalogue."}
+        
+        inv = self.db.get_inventory_record(isbn) # Ensure the book exists in inventory stock table
+        if not inv:
+            return {"success": False, "error": "Book not found in inventory."}
+        
+        
+        
+        stock_val = int(initial_stock)    # Converting input to integer
 
-    #     # check if admin
-    #     auth = self._verify_role_permission(token, "Administrator")
-    #     if not auth["valid"]:
-    #         return {"success": False, "error": auth["error"]}
+        if stock_val > inv["stock"]:
+            return {
+                "success": False,
+                "error": f"Insufficient inventory. Only {inv['stock']} units available."
+            }
+        
+        self.db.insert_new_book(isbn, inv, stock_val) # Creates new record of book to catalogue
+        self.db.update_inventory_publish_status(isbn, inv["stock"] - stock_val) # Reduces the inventory stock level of a book when published by same amount
 
-    #     # input Validation handling
-    #     if not isbn or len(isbn.replace("-", "")) != 13:
-    #         return {"success": False, "error": "Invalid Input: ISBN must be a valid 13-digit sequence."}
-    #     if not title or not author:
-    #         return {"success": False, "error": "Invalid Input: Title and Author fields cannot be blank."}
-    #     try:
-    #         price_val = float(price)
-    #         stock_val = int(initial_stock)
-    #         if price_val < 0 or stock_val < 0:
-    #             raise ValueError()
-    #     except ValueError:
-    #         return {"success": False, "error": "Invalid Input: Price and Stock metrics must be non-negative numeric values."}
+        return {"success": True, "message": f"Successfully published '{title}'."}
+    
+    # Updates stock for books already in the catalogue
+    def update_catalogue_stock(self, token, isbn, amount, operation):
+        auth = self.verification_of_admin(token, "Administrator") # Checks accessibility
+        if not auth["valid"]:
+            return {"success": False, "error": auth["error"]}      
 
-    #     # check for book duplicates
-    #     existing_book = self.db.get_book_by_isbn(isbn)
-    #     if existing_book:
-    #         return {"success": False, "error": f"Collision Error: A record for ISBN {isbn} already exists."}
+        current_book = self.db.get_book_by_isbn(isbn) # Checks if the book is in the catalogue
+        if not current_book:
+            return {"success": False, "error": "Book not found in catalogue. Please use 'Publish' instead."}
+        
+        inv = self.db.get_inventory_record(isbn) # Gets current inventory status
+        amount = int(amount) 
 
-    #     # commit changes via database object
-    #     self.db.insert_book(isbn, title, author, price_val, stock_val)
-    #     return {"success": True, "message": f"Successfully registered '{title}' to the active catalogue."}
+        if operation == "add":  # Adding stock to current book in catalogue 
 
-
-    # # MANUAL STAFF STOCK UPDATE 
-    # def update_inventory_stock(self, token, isbn, new_stock_count):
-    #     auth = self._verify_role_permission(token, "Administrator")
-    #     if not auth["valid"]:
-    #         return {"success": False, "error": auth["error"]}      
-    #     try:
-    #         stock_val = int(new_stock_count)
-    #         if stock_val < 0:
-    #             raise ValueError()
-    #     except ValueError:
-    #         return {"success": False, "error": "Processing Error: Inventory units must be an integer zero or greater."}
-
-       
-    #     target_book = self.db.get_book_by_isbn(isbn)
-    #     if not target_book:
-    #         return {"success": False, "error": "Query Error: Target ISBN does not exist in inventory catalog."}
-
-    #     self.db.update_stock_level(isbn, stock_val)
-    #     return {"success": True, "message": f"Updated '{target_book['title']}' stock matrix to {stock_val} units."}
-
-    # # NO STOCK HANDLING
-    # def register_out_of_stock_request(self, username, isbn):
-    #     target_book = self.db.get_book_by_isbn(isbn)
-    #     if not target_book:
-    #         return {"success": False, "error": "Invalid target book sequence."}
+            if amount > inv["stock"]:
+                return {
+                    "success": False,
+                    "error": f"Insufficient inventory. Only {inv['stock']} units available to add"
+                }
             
-    #     if target_book['stock'] > 0:
-    #         return {"success": False, "error": "Validation Error: Item is currently in stock; proceed to direct checkout."}
+            new_book_stock = current_book["stock"] + amount # adding new stock to the current book stock in catalogue
+            new_inv_stock = inv["stock"] - amount # inventory stock reduced by same amount added into catalogue
+        else: # Removing stock from book in catalogue
 
-    #     self.db.create_backorder_record(username, isbn, timestamp=datetime.now().isoformat())
-    #     return {"success": True, "message": "Backorder request logged successfully. Staff will review shortly."}
+            if amount > current_book["stock"]:
+                return {"success": False, "error": f"Cannot remove more than what is in the catalogue ({current_book['stock']} units)."}
+            
+            new_book_stock = max(0, current_book["stock"] - amount) # book stock is decreased, ensures cannot remove more stocks than what is currently in stock
+            new_inv_stock = inv["stock"] + amount # inventory stock increased by same amount as it returns to inventory 
+
+        self.db.update_book_stock(isbn, new_book_stock) # Saves new book stock
+        self.db.update_inventory_stock(isbn, new_inv_stock) # Saves new inventory stock
+
+        return {"success": True, "message": "Catalogue stock updated."}
+    
+    def get_inventory_report(self): # Retrieves all inventory stocks from the database
+        return self.db.get_all_inventory_stock()
+
+
+# ORDER CONTROLLER - Handles order management, payments, cart managemet, invoice and shipment
+class OrderController:
+    def __init__(self, database):
+        self.db = database #access database for cart operations
+
+    def get_cart_items(self,username):
+        return self.db.get_cart_items(username) # returns cart items for user
+    
+    def add_to_cart(self, username, isbn, quantity=1):
+        if not username or not isbn:
+            return {"success": False, "error": "Invalid cart request."}
+        
+        cart_items = self.get_cart_items(username)      # Checks if item is already in cart
+        if any(item['isbn'] == isbn for item in cart_items):
+            msg = f"Item {isbn} is already in your cart."
+            print(f"[CART IGNORED]: {msg}")
+            return {"success": False, "message": msg}
+        
+            # requires username and ibn
+        self.db.add_to_cart(username, isbn, quantity) # adds book to user's cart
+        msg = f"Successfully added {isbn} to cart."
+        
+        print(f"[CART SUCCESS]: {msg}")
+        return {"success": True, "message": msg} # alerts cart addition has been completed
+    
+    def update_cart_item(self, username, isbn, quantity): # Updating quantity or removing item from cart
+        if not username or not isbn:
+            return {"success": False, "error": "Invalid cart update."}
+
+        try: 
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            print(f"[CART ERROR]: Invalid quantity format: {quantity}")
+            return {"success": False, "error": "Quantity must be number"} # Already handled in HTML (controlview)
+
+        if quantity == 0:                               # Removes cart-item from the cart entirely if 0 quantity is selected
+            self.db.delete_cart_item(username, isbn)
+            msg = f"Item {isbn} removed from cart."
+        else: 
+            book = self.db.get_book_by_isbn(isbn)
+
+            if quantity > book["stock"]:
+                print(f"[CART ERROR]: Stock limit exceeded. Requested: {quantity}")
+                return {"success": False, "error": "Not enough stock available."} # ensures requested quantity does not exceed the stock amount
+
+            self.db.update_cart_quantity(username, isbn, quantity) # updates the quantity of items in cart
+            msg = f"Quantity updated for {isbn} to {quantity}."
+
+        print(f"[CART SUCCESS]: {msg}")
+        return {"success": True, "message": msg}
+    
+    def clear_cart(self, username): 
+        if not username:
+            return{"success": False, "error": "Invalid request"} #requires username
+        self.db.clear_cart(username) # removes all items in cart
+        return {"success": True}
+
+    def get_invoice_details(self, username):        # Calculates cart total
+        """Gathering information for Invoice"""
+        items = self.get_cart_items(username) # fetch user's cart
+        if not items:
+            return None
+    
+        total = sum(item["price"] * item["quantity"] for item in items)
+
+        return {
+            "items": items,
+            "total": total
+        }
+    
+    # For app.py
+    def get_all_orders(self):   
+        return self.db.get_all_orders()
+    def update_order_status(self, order_num, new_status):
+        return self.db.update_order_status(order_num, new_status)
+    def get_orders_by_username(self, username):
+        return self.db.get_orders_by_username(username)
+    def get_order_by_num(self, order_num):
+        return self.db.get_order_by_num(order_num)
+    def get_order_items(self, order_num):
+        return self.db.get_order_items(order_num)
+    
+    def process_customer_order(self, username, card_details, delivery_address, total): #Finalizes transaction and updates stock records in catalogue/catalogue management
+        # Checks if credit card is 16 digits
+        card_number = card_details["card_number"]
+        if not (card_number.isdigit() and len(card_number) == 16):
+            return False, "Payment Failed. Check Card Details, Your card number was not 16 digits."
+
+
+        cart_items = self.get_cart_items(username) # Ensures cart is not empty
+        if not cart_items:
+            return False, "Cart is empty."
+        
+        drivers = self.db.get_drivers_by_courier("FedEx") # Assigns a random driver from the courier service FedEx
+        if drivers:
+            chosen_driver = random.choice(drivers)
+            d_name = chosen_driver['name']
+            d_phone = chosen_driver['delivery_person_phone']
+        else: 
+            d_name = "Unassigned"
+            d_phone = "N/A"
+        
+        # Prepares order data
+        order_num = f"Order#{random.randint(1000, 9999)}" # Once placed, customers receive a random 4 digit order number e.g. Order#1394
+        order_data = {
+            "order_num": order_num,
+            "username": username,
+            "address": delivery_address,
+            "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "courier": "FedEx",
+            "d_name": d_name,
+            "d_phone": d_phone,
+            "status": "Processed"
+        }
+
+        self.db.record_order(order_data, cart_items) # Saves order to DB
+
+        for item in cart_items:
+
+            self.db.deduct_stock_after_purchase(item['isbn'], item['quantity']) # Removes stock from main catalogue shock based on order items
+
+        self.db.clear_cart(username) # Clears customers cart after payment and processed
+
+        return True, f"Payment of ${total:.2f} was successful! Your order number is {order_num}."
+
+        
+    
+        
+
+        
