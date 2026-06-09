@@ -49,7 +49,7 @@ To ensure our custom architectural module layout (like `interface` and `server`)
 ```bash
 python app.py
 ```
-Once executed, open your web browser and navigate to: `http://127.0.5.1:5000/`
+Once executed, open your web browser and navigate to: `http://127.0.5.1:5000/` or if that doesnt work, go to the link shown in the terminal
 
 ---
 
