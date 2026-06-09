@@ -8,11 +8,16 @@ Welcome to our project repository! Follow the instructions below to get the appl
 
 Always run these commands from the main `TFB_APP` root directory.
 
-### 1. Clone the Repository
+### 1a. Clone the Repository (First Method)
 ```bash
 git clone https://github.com/Alex-Vrsecky/Book_Store_Implementation
 cd TFB_APP
 ```
+### 1b. Download the zipped folder (Second Method)
+1. Unzip and choose a destination for the content to go to
+2. Open Visual Studio Code
+3. Ensure python is installed (version that works for me 3.12.5, but others could also work)
+4. Open the terminal and ensure you are running commands from this point on in the main `TFB_APP` root directory
 
 ### 2. Set Up a Virtual Environment
 Create and activate an isolated Python environment to keep the packages managed:
