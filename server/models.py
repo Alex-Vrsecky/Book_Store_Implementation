@@ -56,19 +56,6 @@ class LoginController:
             return payload
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return None
-        
-    # this method is for a signup feature we probably won't implement  
-    # you can also use this function independantly to create hashes from passwords
-    # def hash_new_password(self, pwd):
-    #     salt = os.urandom(32)
-    #     hash = hashlib.pbkdf2_hmac(
-    #         "sha256",
-    #         pwd.encode("utf-8"),
-    #         salt,
-    #         150000
-    #     )
-    #     return salt.hex() + hash.hex()
-        
 
 # CATALOGUE CONTROLLER
 class CatalogueController:
